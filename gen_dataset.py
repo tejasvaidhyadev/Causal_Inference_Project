@@ -2,8 +2,12 @@ import numpy as np
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
+#===============================================================================
+# BASED ON Synthetic Counterfactuals in Product Review Data FROM PAPER.
 # script try to replicate figure 2 from the paper
 # Load the Amazon reviews data
+#===============================================================================
+
 reviews = pd.read_csv('data/amazon_reviews.csv')
 
 # Select 20000 product reviews and assign labels based on the star rating

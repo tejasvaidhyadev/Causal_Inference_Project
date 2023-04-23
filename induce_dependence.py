@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+# Boilerplate implementation of inducing dependence in a dataset for real world data
 def induce_dependence(data, gamma):
     # Step 1: Randomly drop reviews with 0 helpful votes V
     data = data[data['helpful_votes'] > 0].copy()
