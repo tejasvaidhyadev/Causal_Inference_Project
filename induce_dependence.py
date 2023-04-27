@@ -3,7 +3,6 @@ import pandas as pd
 
 # Boilerplate implementation of inducing dependence in a dataset for real world data 
 # ToDo - Implement this in gen_dataset.py
-
 def induce_dependence(data, gamma):
     # Step 1: Randomly drop reviews with 0 helpful votes V
     data = data[data['helpful_votes'] > 0].copy()
