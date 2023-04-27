@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 
 # Define the MMD regularizer
+# This module need to be recheck for futhur development
+
+
 class MMDLoss(nn.Module):
     def __init__(self, kernel_bandwidth):
         super(MMDLoss, self).__init__()
