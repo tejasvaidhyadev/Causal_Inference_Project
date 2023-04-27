@@ -9,7 +9,7 @@ import os
 def load_data(file_path):
     return pd.read_csv(file_path)
 
-def preprocess_data(reviews, n_samples=10000):
+def preprocess_data(reviews, n_samples=18000):
     reviews_subset = reviews.sample(n=n_samples, random_state=42)
     Y = np.where(reviews_subset['score'].isin([4, 5]), 1, 0)
     X = reviews_subset['text'].str.split().str[:20].str.join(' ')
