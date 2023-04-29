@@ -9,7 +9,7 @@ import os
 def load_data(file_path):
     return pd.read_csv(file_path)
 
-def preprocess_data(reviews, n_samples=18000):
+def preprocess_data(reviews, n_samples=18000): # 18000
     reviews_subset = reviews.sample(n=n_samples, random_state=42)
     Y = np.where(reviews_subset['score'].isin([4, 5]), 1, 0)
     X = reviews_subset['text'].str.split().str[:20].str.join(' ')
@@ -25,13 +25,23 @@ def replace_tokens(X, Z):
                  X.str.replace('and', 'andyyyyy').str.replace('the', 'theyyyyy'))
     return X
 
-def resample_data(X, Y, gamma=0.3, p_Y=0.5):
-    X_resampled = np.random.permutation(X)
-    Y_resampled = np.random.binomial(1, p_Y, size=len(Y))
-    Z_resampled = np.where(Y_resampled == 1, np.random.binomial(1, gamma, size=len(Y)),
-                              np.random.binomial(1, 1 - gamma, size=len(Y)))
-    
-    return X_resampled, Y_resampled, Z_resampled
+def induce_association( Y, Z, gamma=0.3, p_Y=0.5):
+    # Calculate the number of samples required for each group
+    n_z1_y1 = int(sum((Z == 1) & (Y == 1)) * gamma / (1 - gamma))
+    n_z0_y0 = int(sum((Z == 0) & (Y == 0)) * gamma / (1 - gamma))
+
+    # Randomly sample the required number of samples from each group
+    z1_y1_indices = np.random.choice(np.where((Z == 1) & (Y == 1))[0], size=n_z1_y1, replace=False)
+    z0_y0_indices = np.random.choice(np.where((Z == 0) & (Y == 0))[0], size=n_z0_y0, replace=False)
+
+    # Update Y values to create the target association
+    print(len(Y))
+    print(len(z1_y1_indices))
+    print(len(z0_y0_indices))
+    Y[z1_y1_indices] = 0
+    Y[z0_y0_indices] = 1
+    return  Y
+
 
 def split_data(X, Y, Z, test_size=0.2):
     return train_test_split(X, Y, Z, test_size=test_size, random_state=42)
@@ -53,9 +63,14 @@ def create_perturbed_dataset(test_df):
 if __name__ == "__main__":
     reviews = load_data('data/amazon_reviews.csv')
     X, Y = preprocess_data(reviews)
+    # generate Z variable using a Bernoulli distribution
     Z = assign_Z_variable(X)
+
+    # replace tokens in X based on Z variable based on the paper
     X = replace_tokens(X, Z)
-    X_resampled, Y_resampled, Z_resampled = resample_data(X, Y)
+
+    # induce association between Y and Z
+    X_resampled, Y_resampled, Z_resampled = X, induce_association(Y, Z), Z
     X_train, X_test, Y_train, Y_test, Z_train, Z_test = split_data(X_resampled, Y_resampled, Z_resampled)
     
     save_data_to_csv(X_train, Y_train, Z_train, 'data/train.csv')

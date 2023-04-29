@@ -1,1 +1,6 @@
+experiments
 data
+__pycache__
+.ipynb_checkpoints
+
+__pycache__/utils.cpython-310.pyc
