@@ -25,32 +25,36 @@ def replace_tokens(X, Z):
                  X.str.replace('and', 'andyyyyy').str.replace('the', 'theyyyyy'))
     return X
 
-def induce_association( Y, Z, gamma=0.3, p_Y=0.5):
-    # Calculate the number of samples required for each group
-    n_z1_y1 = int(sum((Z == 1) & (Y == 1)) * gamma / (1 - gamma))
-    n_z0_y0 = int(sum((Z == 0) & (Y == 0)) * gamma / (1 - gamma))
+def induce_association( data , gamma=0.3, p_y_1=0.5):
+    
+    num_samples = len(data)
+    
+    y_equals_1 = int(num_samples * p_y_1)
+    y_equals_0 = num_samples - y_equals_1
 
-    # Randomly sample the required number of samples from each group
-    z1_y1_indices = np.random.choice(np.where((Z == 1) & (Y == 1))[0], size=n_z1_y1, replace=False)
-    z0_y0_indices = np.random.choice(np.where((Z == 0) & (Y == 0))[0], size=n_z0_y0, replace=False)
+    z_1_y_1 = int(y_equals_1 * gamma)
+    z_0_y_1 = y_equals_1 - z_1_y_1
+    
+    z_1_y_0 = int(y_equals_0 * (1 - gamma))
+    z_0_y_0 = y_equals_0 - z_1_y_0
 
-    # Update Y values to create the target association
-    print(len(Y))
-    print(len(z1_y1_indices))
-    print(len(z0_y0_indices))
-    Y[z1_y1_indices] = 0
-    Y[z0_y0_indices] = 1
-    return  Y
+    anti_causal_data = pd.concat([
+        data[(data['Y'] == 1) & (data['Z'] == 1)].sample(n=z_1_y_1, replace=True),
+        data[(data['Y'] == 1) & (data['Z'] == 0)].sample(n=z_0_y_1, replace=True),
+        data[(data['Y'] == 0) & (data['Z'] == 1)].sample(n=z_1_y_0, replace=True),
+        data[(data['Y'] == 0) & (data['Z'] == 0)].sample(n=z_0_y_0, replace=True)
+    ])
+
+    return  anti_causal_data
 
 
-def split_data(X, Y, Z, test_size=0.2):
-    return train_test_split(X, Y, Z, test_size=test_size, random_state=42)
+def split_data(data, test_size=0.2):
+    return train_test_split(data, test_size=test_size, random_state=42)
 
-def save_data_to_csv(X, Y, Z, file_path):
+def save_data_to_csv(data, file_path):
     if not os.path.exists('data'):
         os.makedirs('data')
-        
-    pd.DataFrame({'X': X, 'Y': Y, 'Z': Z}).to_csv(file_path, index=False)
+    data.to_csv(file_path, index=False)
 
 def create_perturbed_dataset(test_df):
     perturbed_df = test_df.copy()
@@ -63,19 +67,32 @@ def create_perturbed_dataset(test_df):
 if __name__ == "__main__":
     reviews = load_data('data/amazon_reviews.csv')
     X, Y = preprocess_data(reviews)
+    
     # generate Z variable using a Bernoulli distribution
     Z = assign_Z_variable(X)
 
     # replace tokens in X based on Z variable based on the paper
     X = replace_tokens(X, Z)
+    
+    # make new data frame
+    data = pd.DataFrame({'X': X, 'Y': Y, 'Z': Z})
+    
+    
+    # INDUCE Assoication
+    anti_causal_data = induce_association( data , gamma=0.3, p_y_1=0.5)
+    
+    # Split the data into train (70%), test (30%) sets
+    train_data, test_data = split_data(anti_causal_data, test_size=0.2)
 
-    # induce association between Y and Z
-    X_resampled, Y_resampled, Z_resampled = X, induce_association(Y, Z), Z
-    X_train, X_test, Y_train, Y_test, Z_train, Z_test = split_data(X_resampled, Y_resampled, Z_resampled)
-    
-    save_data_to_csv(X_train, Y_train, Z_train, 'data/train.csv')
-    save_data_to_csv(X_test, Y_test, Z_test, 'data/test.csv')
-    
+    #train_data, test_data = train_test_split(anti_causal_data, test_size=43783 + 17513, random_state=42)
+
+    # induce association between Y and Z    
+    save_data_to_csv(train_data, 'data/train.csv')
+    save_data_to_csv(test_data, 'data/test.csv')
+    #train_data.to_csv('data/train.csv', index=False)
+    #test_data.to_csv('data/test.csv', index=False)
+
     test_df = load_data('data/test.csv')
     perturbed_df = create_perturbed_dataset(test_df)
     perturbed_df.to_csv('data/perturbed_test.csv', index=False)
+    print("I am done!")
