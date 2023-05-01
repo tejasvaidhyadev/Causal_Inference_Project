@@ -20,7 +20,7 @@ from transformers.optimization import get_linear_schedule_with_warmup, AdamW
 # Make it gpu enable code.
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', default='synthetic_exp2', help="Directory containing the dataset")
+parser.add_argument('--dataset', default='synthetic_exp3', help="Directory containing the dataset")
 parser.add_argument('--batch_size', type=int, default=128, help="batch size for training")
 parser.add_argument('--learning_rate', type=float, default=5e-4, help="learning rate for training")
 parser.add_argument('--patience', type=int, default=5, help="patience for early stopping")
@@ -202,6 +202,8 @@ if __name__ == "__main__":
     # Train the model with the current regularization coefficient
         best_val_loss = float('inf')
         patience_counter = 0
+        model_save_path = os.path.join(tagger_model_dir, f"model_reg_coeff_{regularization_coefficient}.pt")
+
         for epoch in range(epochs):
             # Train for one epoch
             model.train()
@@ -267,15 +269,17 @@ if __name__ == "__main__":
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 patience_counter = 0
+                
+                # Save the model
+                torch.save(model.state_dict(), model_save_path)
+                logging.info(f"Model saved to {model_save_path}")
+
             else:
                 patience_counter += 1
+                
                 if patience_counter >= patience:
                     logging.info(f"Early stopping after {epoch} epochs")
                     break
-        # Save the model
-        model_save_path = os.path.join(tagger_model_dir, f"model_reg_coeff_{regularization_coefficient}.pt")
-        torch.save(model.state_dict(), model_save_path)
-        logging.info(f"Model saved to {model_save_path}")
         
         # Load the saved model
         
@@ -283,6 +287,7 @@ if __name__ == "__main__":
         #model.load_state_dict(torch.load(model_load_path))
         #logging.info(f"Model loaded from {model_load_path}")
 
+        
         # Evaluate the model on the original test set
         model.eval()
         test_preds = []

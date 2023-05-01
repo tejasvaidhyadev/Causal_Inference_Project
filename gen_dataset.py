@@ -9,7 +9,7 @@ import os
 def load_data(file_path):
     return pd.read_csv(file_path)
 
-def preprocess_data(reviews, n_samples=18000): # 18000
+def preprocess_data(reviews, n_samples=20000): # 18000
     reviews_subset = reviews.sample(n=n_samples, random_state=42)
     Y = np.where(reviews_subset['score'].isin([4, 5]), 1, 0)
     X = reviews_subset['text'].str.split().str[:20].str.join(' ')
@@ -29,21 +29,20 @@ def induce_association( data , gamma=0.3, p_y_1=0.5):
     
     num_samples = len(data)
     
-    y_equals_1 = int(num_samples * p_y_1)
-    y_equals_0 = num_samples - y_equals_1
+    # Calculate P(Y = 1 | Z = 1) and P(Y = 0 | Z = 0)
+    p_y1_z1 = data[(data['Y'] == 1) & (data['Z'] == 1)].shape[0] / data[data['Z'] == 1].shape[0]
+    p_y0_z0 = data[(data['Y'] == 0) & (data['Z'] == 0)].shape[0] / data[data['Z'] == 0].shape[0]
 
-    z_1_y_1 = int(y_equals_1 * gamma)
-    z_0_y_1 = y_equals_1 - z_1_y_1
-    
-    z_1_y_0 = int(y_equals_0 * (1 - gamma))
-    z_0_y_0 = y_equals_0 - z_1_y_0
+    # Target association γ
+    gamma = 0.5
 
-    anti_causal_data = pd.concat([
-        data[(data['Y'] == 1) & (data['Z'] == 1)].sample(n=z_1_y_1, replace=True),
-        data[(data['Y'] == 1) & (data['Z'] == 0)].sample(n=z_0_y_1, replace=True),
-        data[(data['Y'] == 0) & (data['Z'] == 1)].sample(n=z_1_y_0, replace=True),
-        data[(data['Y'] == 0) & (data['Z'] == 0)].sample(n=z_0_y_0, replace=True)
-    ])
+    # Select a random subset with the target association
+    subset_y1_z1 = data[(data['Y'] == 1) & (data['Z'] == 1)].sample(frac=gamma / p_y1_z1, random_state=42, replace=True)
+    subset_y0_z0 = data[(data['Y'] == 0) & (data['Z'] == 0)].sample(frac=(1 - gamma) / p_y0_z0, random_state=42, replace=True)
+
+    # Combine the selected subsets and the rest of the data
+    anti_causal_data = pd.concat([subset_y1_z1, subset_y0_z0, data[(data['Y'] == 1) & (data['Z'] == 0)], data[(data['Y'] == 0) & (data['Z'] == 1)]])
+
 
     return  anti_causal_data
 
