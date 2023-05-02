@@ -9,7 +9,7 @@ import os
 def load_data(file_path):
     return pd.read_csv(file_path)
 
-def preprocess_data(reviews, n_samples=20000): # 18000
+def preprocess_data(reviews, n_samples=40000): # 18000
     reviews_subset = reviews.sample(n=n_samples, random_state=42)
     Y = np.where(reviews_subset['score'].isin([4, 5]), 1, 0)
     X = reviews_subset['text'].str.split().str[:20].str.join(' ')
@@ -25,7 +25,30 @@ def replace_tokens(X, Z):
                  X.str.replace('and', 'andyyyyy').str.replace('the', 'theyyyyy'))
     return X
 
-def induce_association( data , gamma=0.3, p_y_1=0.5):
+def induce_association( data , gamma=0.3, p_y_1=0.5, replacement = False):
+
+    # Filter the data based on the values of Y and Z
+    # I am not sure, If I am inducing association 
+    data_y1_z1 = data[(data["Y"] == 1) & (data["Z"] == 1)]
+    data_y0_z0 = data[(data["Y"] == 0) & (data["Z"] == 0)]
+    data_other = data[~data.index.isin(data_y1_z1.index) & ~data.index.isin(data_y0_z0.index)]
+
+    # Calculate the number of instances needed for each group
+    n_total = 36000
+    n_y1_z1 = int(n_total * gamma / 2)
+    n_y0_z0 = n_y1_z1
+    n_other = n_total - n_y1_z1 - n_y0_z0
+
+    # Resample the data
+    resampled_data = pd.concat([
+        data_y1_z1.sample(n_y1_z1, replace=True),
+        data_y0_z0.sample(n_y0_z0, replace=True),
+        data_other.sample(n_other, replace=True)
+    ])
+    anti_causal_data = resampled_data
+    return  anti_causal_data
+
+def induce_association2( data , gamma=0.3, p_y_1=0.5):
     
     num_samples = len(data)
     
@@ -46,7 +69,6 @@ def induce_association( data , gamma=0.3, p_y_1=0.5):
 
     return  anti_causal_data
 
-
 def split_data(data, test_size=0.2):
     return train_test_split(data, test_size=test_size, random_state=42)
 
@@ -65,7 +87,7 @@ def create_perturbed_dataset(test_df):
 
 if __name__ == "__main__":
     reviews = load_data('data/amazon_reviews.csv')
-    X, Y = preprocess_data(reviews)
+    X, Y = preprocess_data(reviews, n_samples = len(reviews) )
     
     # generate Z variable using a Bernoulli distribution
     Z = assign_Z_variable(X)

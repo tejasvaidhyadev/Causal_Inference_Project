@@ -21,12 +21,11 @@ from transformers.optimization import get_linear_schedule_with_warmup, AdamW
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', default='synthetic_exp3', help="Directory containing the dataset")
-parser.add_argument('--batch_size', type=int, default=128, help="batch size for training")
-parser.add_argument('--learning_rate', type=float, default=5e-4, help="learning rate for training")
+parser.add_argument('--batch_size', type=int, default=80, help="batch size for training")
+parser.add_argument('--learning_rate', type=float, default=5e-5, help="learning rate for training")
 parser.add_argument('--patience', type=int, default=5, help="patience for early stopping")
 parser.add_argument('--num_tpus', type=int, default=1, help="number of TPUs to use")
 parser.add_argument('--epochs', type=int, default=5, help="number of epochs to train for")
-parser.add_argument('--kernel_bandwidth', type=float, default=0, help="kernel bandwidth for MMD loss")
 parser.add_argument('--num_labels', type=int, default=2, help="number of labels in the dataset")
 parser.add_argument('--max_seq_length', type=int, default=64, help="maximum sequence length for BERT")
 parser.add_argument('--is_marginal_reg', type=bool, default=True, help="whether to use marginal regularization")
@@ -38,7 +37,7 @@ learning_rate = args.learning_rate
 patience = args.patience
 num_tpus = args.num_tpus
 epochs = args.epochs
-kernel_bandwidth = args.kernel_bandwidth
+#kernel_bandwidth = args.kernel_bandwidth
 num_labels = args.num_labels
 max_seq_length = args.max_seq_length
 is_marginal_reg = args.is_marginal_reg
@@ -158,7 +157,6 @@ if __name__ == "__main__":
     logging.info("patience: {}".format(patience))
     logging.info("num_tpus: {}".format(num_tpus))
     logging.info("epochs: {}".format(epochs))
-    logging.info("kernel_bandwidth: {}".format(kernel_bandwidth))
     logging.info("num_labels: {}".format(num_labels))
     logging.info("max_seq_length: {}".format(max_seq_length))
     logging.info("is_marginal_reg: {}".format(is_marginal_reg))
@@ -189,7 +187,7 @@ if __name__ == "__main__":
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=train_steps_per_epoch, num_training_steps=epochs * train_steps_per_epoch)
 
     criterion = nn.CrossEntropyLoss()
-    regularization_coefficients = [0.0]
+    regularization_coefficients = [ 1.0, 10.0, 100.0, 1000.0 ]
 
     # Create the data loaders for the test and perturbed test sets
     test_dataset = CustomDataset("data/test.csv", tokenizer, max_seq_length=64)
@@ -217,14 +215,15 @@ if __name__ == "__main__":
                 pooled_output, logits = model(input_ids, input_mask)
 
                 loss = criterion(logits, labels)
-                
+                print(loss)
                 # Compute the marginal regularization term
-                mmd_loss = MMDLoss(kernel_bandwidth=10.0)
+                mmd_loss = MMDLoss(kernel_bandwidth=None)
                 mmd_loss.to(device)
                 reg_term = compute_regularization_term(model, mmd_loss, pooled_output, Z, labels, is_marginal_reg)                
                 loss += regularization_coefficient * reg_term
-
                 train_loss_avg.update(loss.item())
+                print(loss)
+                print(reg_term)
                 # log the loss
                 train_loader_tqdm.set_postfix(loss='{:05.3f}'.format(train_loss_avg()))
                 optimizer.zero_grad()
