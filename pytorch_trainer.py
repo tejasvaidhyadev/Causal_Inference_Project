@@ -25,9 +25,9 @@ parser.add_argument('--batch_size', type=int, default=80, help="batch size for t
 parser.add_argument('--learning_rate', type=float, default=5e-5, help="learning rate for training")
 parser.add_argument('--patience', type=int, default=5, help="patience for early stopping")
 parser.add_argument('--num_tpus', type=int, default=1, help="number of TPUs to use")
-parser.add_argument('--epochs', type=int, default=5, help="number of epochs to train for")
+parser.add_argument('--epochs', type=int, default=1, help="number of epochs to train for")
 parser.add_argument('--num_labels', type=int, default=2, help="number of labels in the dataset")
-parser.add_argument('--max_seq_length', type=int, default=64, help="maximum sequence length for BERT")
+parser.add_argument('--max_seq_length', type=int, default=128, help="maximum sequence length for BERT")
 parser.add_argument('--is_marginal_reg', type=bool, default=True, help="whether to use marginal regularization")
 
 args = parser.parse_args()
@@ -78,33 +78,6 @@ def compute_conditional_regularization(model, mmd_loss, pooled_output, Z, Y, y_v
 
     return mmd_loss(f_X_z0_y, f_X_z1_y)
 
-def set_logger(log_path):
-    """Set the logger to log info in terminal and file `log_path`.
-
-    In general, it is useful to have a logger so that every output to the terminal is saved
-    in a permanent file. Here we save it to `model_dir/train.log`.
-
-    Example:
-    ```
-    logging.info("Starting training...")
-    ```
-
-    Args:
-        log_path: (string) where to log
-    """
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-
-    if not logger.handlers:
-        # Logging to a file
-        file_handler = logging.FileHandler(log_path)
-        file_handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s: %(message)s'))
-        logger.addHandler(file_handler)
-
-        # Logging to console
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(logging.Formatter('%(message)s'))
-        logger.addHandler(stream_handler)
         
 def compute_regularization_term(model, mmd_loss, pooled_output, Z, labels, is_marginal_reg):
     """
@@ -222,8 +195,6 @@ if __name__ == "__main__":
                 reg_term = compute_regularization_term(model, mmd_loss, pooled_output, Z, labels, is_marginal_reg)                
                 loss += regularization_coefficient * reg_term
                 train_loss_avg.update(loss.item())
-                print(loss)
-                print(reg_term)
                 # log the loss
                 train_loader_tqdm.set_postfix(loss='{:05.3f}'.format(train_loss_avg()))
                 optimizer.zero_grad()

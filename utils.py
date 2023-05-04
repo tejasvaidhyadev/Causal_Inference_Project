@@ -75,6 +75,57 @@ class MMDLoss(nn.Module):
 #         mmd = torch.mean(xx_kernel) + torch.mean(yy_kernel) - 2 * torch.mean(xy_kernel)
 #         return mmd
 
+def calculate_label_flips(original_preds, perturbed_preds):
+    assert len(original_preds) == len(perturbed_preds)
+    flips = sum(original_preds[i] != perturbed_preds[i] for i in range(len(original_preds)))
+    return flips / len(original_preds)
+
+def compute_marginal_regularization(model, mmd_loss, pooled_output, Z):
+    f_X_z0 = pooled_output[Z == 0]
+    f_X_z0 = model.classifier(f_X_z0)
+
+    f_X_z1 = pooled_output[Z == 1]
+    f_X_z1 = model.classifier(f_X_z1)
+    return mmd_loss(f_X_z0, f_X_z1)
+
+def compute_conditional_regularization(model, mmd_loss, pooled_output, Z, Y, y_value):
+    f_X_z0_y = pooled_output[(Z == 0) & (Y == y_value)]    
+    f_X_z0_y = model.classifier(f_X_z0_y)
+    f_X_z1_y = pooled_output[(Z == 1) & (Y == y_value)]
+    f_X_z1_y = model.classifier(f_X_z1_y)
+
+    return mmd_loss(f_X_z0_y, f_X_z1_y)
+
+        
+def compute_regularization_term(model, mmd_loss, pooled_output, Z, labels, is_marginal_reg):
+    """
+    Compute the regularization term based on the specified type (marginal or conditional).
+
+    Parameters:
+    - mmd_loss: The MMD loss function.
+    - pooled_output: The pooled output from the model.
+    - Z: The latent variable.
+    - labels: The labels for the data.
+    - is_marginal_reg: A boolean flag indicating whether to compute the marginal regularization term.
+
+    Returns:
+    - reg_term: The computed regularization term.
+    """
+
+    # Compute the marginal regularization term
+    if is_marginal_reg:
+        marginal_reg = compute_marginal_regularization(model, mmd_loss, pooled_output, Z)
+        reg_term = marginal_reg
+    else:
+        # Compute the conditional regularization terms
+        cond_reg_y0 = compute_conditional_regularization(model, mmd_loss, pooled_output, Z, labels, 0)
+
+        # Compute the conditional regularization terms
+        cond_reg_y1 = compute_conditional_regularization(model, mmd_loss, pooled_output, Z, labels, 1)
+        
+        reg_term = cond_reg_y0 + cond_reg_y1
+
+    return reg_term
 
 class RunningAverage():
     """A simple class that maintains the running average of a quantity
@@ -99,5 +150,30 @@ class RunningAverage():
     def __call__(self):
         return self.total / float(self.steps)
 
+def set_logger(log_path):
+    """Set the logger to log info in terminal and file `log_path`.
 
+    In general, it is useful to have a logger so that every output to the terminal is saved
+    in a permanent file. Here we save it to `model_dir/train.log`.
 
+    Example:
+    ```
+    logging.info("Starting training...")
+    ```
+
+    Args:
+        log_path: (string) where to log
+    """
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    if not logger.handlers:
+        # Logging to a file
+        file_handler = logging.FileHandler(log_path)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s: %(message)s'))
+        logger.addHandler(file_handler)
+
+        # Logging to console
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(logging.Formatter('%(message)s'))
+        logger.addHandler(stream_handler)
