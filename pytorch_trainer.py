@@ -1,5 +1,4 @@
 # This scirpt is port of trainer.py to drop dependency from tf.hub and use huggingface transformers instead.
-# Author: Tejas Vaidhya
 import torch
 import torch.nn as nn
 import torch.optim as optim
